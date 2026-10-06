@@ -7,7 +7,8 @@ from main import NeuralNetwork
 
 app = FastAPI()
 
-WALL_FILE = Path(__file__).parent / "wall.json"
+import os
+WALL_FILE = Path(os.environ.get("WALL_PATH", Path(__file__).parent / "wall.json"))
 
 def load_wall() -> dict:
     if WALL_FILE.exists():
