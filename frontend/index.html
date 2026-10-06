@@ -203,7 +203,17 @@
     .modal button.primary:hover { background: #d4d4d4; }
 
     @media (max-width: 720px) {
-      .wall { display: none; }
+      /* hall stays visible on mobile: docked bottom-left, opposite the restart button */
+      .wall {
+        top: auto;
+        bottom: 20px;
+        left: 20px;
+        right: auto;
+        max-width: 42%;
+        text-align: left;
+      }
+      .wall h2 { margin-bottom: 4px; }
+      .wall .entry { line-height: 1.6; font-size: 12px; }
     }
     @media (max-width: 480px) {
       .board { grid-template-columns: repeat(3, 88px); grid-auto-rows: 88px; }
