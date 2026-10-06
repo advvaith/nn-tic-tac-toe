@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TicTacNet — You vs the DQN</title>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #000000;
+      --text: #ededed;
+      --text-dim: #a1a1a1;
+      --text-faint: #6f6f6f;
+      --border: rgba(255, 255, 255, 0.12);
+      --border-strong: rgba(255, 255, 255, 0.24);
+      --hover: rgba(255, 255, 255, 0.05);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Geist', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── top-left scoreboard ── */
+    .scoreboard {
+      position: fixed;
+      top: 24px;
+      left: 24px;
+      font-family: 'Geist Mono', ui-monospace, monospace;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      line-height: 2;
+    }
+    .scoreboard .num {
+      color: var(--text);
+      font-weight: 500;
+      display: inline-block;
+      min-width: 2ch;
+    }
+
+    /* ── top-center turn indicator ── */
+    .status {
+      position: fixed;
+      top: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+    .status.bold { color: var(--text); font-weight: 600; font-size: 16px; }
+
+    /* ── top-right wall of fame ── */
+    .wall {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      text-align: right;
+      font-family: 'Geist Mono', ui-monospace, monospace;
+      max-width: 260px;
+    }
+    .wall h2 {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      margin-bottom: 8px;
+    }
+    .wall .entry {
+      font-size: 13px;
+      color: var(--text-dim);
+      line-height: 1.9;
+    }
+    .wall .entry .name { color: var(--text); }
+    .wall .entry .wins { color: var(--text-faint); }
+    .wall .empty { font-size: 12px; color: var(--text-faint); }
+
+    /* ── board, dead center ── */
+    .board {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: grid;
+      grid-template-columns: repeat(3, 110px);
+      grid-auto-rows: 110px;
+      gap: 6px;
+    }
+    .cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 44px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      user-select: none;
+      cursor: default;
+      box-shadow: 0px 0px 0px 1px var(--border);
+      border-radius: 8px;
+      transition: background 0.15s, box-shadow 0.15s;
+    }
+    .cell.open { cursor: pointer; }
+    .cell.open:hover { background: var(--hover); box-shadow: 0px 0px 0px 1px var(--border-strong); }
+    .cell.last { box-shadow: 0px 0px 0px 1px var(--border-strong); }
+
+    /* ── bottom-right restart ── */
+    .restart {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: transparent;
+      color: var(--text);
+      font-family: 'Geist', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: 0px 0px 0px 1px var(--border);
+      transition: background 0.15s;
+    }
+    .restart:hover { background: var(--hover); }
+    .restart:active { background: rgba(255, 255, 255, 0.1); }
+
+    /* ── modal (name probe + end of run) ── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    .overlay.hidden { display: none; }
+    .modal {
+      background: var(--bg);
+      padding: 32px;
+      border-radius: 12px;
+      box-shadow: 0px 0px 0px 1px var(--border-strong);
+      text-align: center;
+      min-width: 320px;
+    }
+    .modal h1 {
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: -0.96px;
+      margin-bottom: 8px;
+    }
+    .modal p {
+      font-size: 14px;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+    }
+    .modal input {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: 'Geist Mono', monospace;
+      font-size: 16px;
+      padding: 10px 12px;
+      width: 100%;
+      border-radius: 6px;
+      box-shadow: 0px 0px 0px 1px var(--border);
+      outline: none;
+      margin-bottom: 16px;
+    }
+    .modal input:focus { box-shadow: 0px 0px 0px 1px var(--border-strong); }
+    .modal .actions { display: flex; gap: 8px; justify-content: center; }
+    .modal .actions + .actions { margin-top: 8px; }
+    .modal .choice-label {
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      margin-bottom: 8px;
+    }
+    .modal button {
+      background: transparent;
+      color: var(--text);
+      font-family: 'Geist', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: 0px 0px 0px 1px var(--border);
+      transition: background 0.15s;
+    }
+    .modal button:hover { background: var(--hover); }
+    .modal button.primary { background: var(--text); color: var(--bg); font-weight: 600; }
+    .modal button.primary:hover { background: #d4d4d4; }
+
+    @media (max-width: 720px) {
+      .wall { display: none; }
+    }
+    @media (max-width: 480px) {
+      .board { grid-template-columns: repeat(3, 88px); grid-auto-rows: 88px; }
+      .cell { font-size: 34px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="scoreboard">
+    <div>You&nbsp;&nbsp;<span class="num" id="score-you">0</span></div>
+    <div>AI&nbsp;&nbsp;&nbsp;&nbsp;<span class="num" id="score-ai">0</span></div>
+  </div>
+
+  <div class="status" id="status">Who's playing?</div>
+
+  <div class="wall">
+    <h2>Wall of Fame</h2>
+    <div id="wall-list"><div class="empty">no one has beaten it. yet.</div></div>
+  </div>
+
+  <div class="board" id="board"></div>
+
+  <button class="restart" id="restart">Restart</button>
+
+  <!-- name probe -->
+  <div class="overlay" id="name-overlay">
+    <div class="modal">
+      <h1>Who's challenging?</h1>
+      <p>Two brains, one wall of fame. Names are eternal.</p>
+      <input id="name-input" placeholder="your name" maxlength="24" autocomplete="off">
+      <div class="choice-label">who starts</div>
+      <div class="actions">
+        <button class="primary" id="name-go">I start (O)</button>
+        <button id="name-ai">AI starts (X)</button>
+      </div>
+      <div class="actions" style="margin-top:8px">
+        <button id="name-swap-hint" style="border:none; box-shadow:none; cursor:default; color:var(--text-faint); font-size:12px;">first move swaps every game</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- end of run -->
+  <div class="overlay hidden" id="end-overlay">
+    <div class="modal">
+      <h1 id="end-title">Game over</h1>
+      <p id="end-sub"></p>
+      <div class="actions">
+        <button class="primary" id="end-retry">Play again</button>
+        <button id="end-quit">Quit</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ── state ──
+  // seats are dynamic: userSeat/aiSeat swap every game. X is always +1, O is always -1.
+  let userSeat = -1, aiSeat = 1;            // default: user opens as O, AI answers as X
+  let board = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+  let gameOver = false;
+  let scores = { you: 0, ai: 0 };
+  let lastMove = -1;
+  let thinking = false;                     // input lock while the AI's move is in flight
+  let playerName = null;
+
+  const WIN_LINES = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+
+  const boardEl  = document.getElementById('board');
+  const statusEl = document.getElementById('status');
+  const youEl    = document.getElementById('score-you');
+  const aiEl     = document.getElementById('score-ai');
+
+  // ── board rendering ──
+  function render() {
+    boardEl.innerHTML = '';
+    board.forEach((v, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      if (v === 1)  cell.textContent = 'X';
+      if (v === -1) cell.textContent = 'O';
+      if (i === lastMove) cell.classList.add('last');
+      if (v === 0 && !gameOver) {
+        cell.classList.add('open');
+        cell.onclick = () => userMove(i);
+      }
+      boardEl.appendChild(cell);
+    });
+  }
+
+  // ── game logic (mirrors game.py) ──
+  function winnerOf(b) {
+    for (const [a, c, d] of WIN_LINES) {
+      const s = b[a] + b[c] + b[d];
+      if (s === 3)  return 1;
+      if (s === -3) return -1;
+    }
+    return 0;
+  }
+  const validMoves = b => b.map((v, i) => v === 0 ? i : -1).filter(i => i >= 0);
+  const done = b => winnerOf(b) !== 0 || validMoves(b).length === 0;
+
+  // ── turn flow ──
+  function setStatus(text, bold = false) {
+    statusEl.textContent = text;
+    statusEl.classList.toggle('bold', bold);
+  }
+
+  async function userMove(cell) {
+    if (gameOver || thinking || board[cell] !== 0) return;
+    board[cell] = userSeat;
+    lastMove = cell;
+    render();
+    if (checkEnd()) return;
+    await aiTurn();
+  }
+
+  async function aiTurn() {
+    thinking = true;
+    setStatus('AI is thinking…');
+    try {
+      const res = await fetch('/move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          board: board.map(c => c * aiSeat),   // mover's perspective: AI's stones read +1
+          valid_moves: validMoves(board),
+          seat: aiSeat === 1 ? 'x' : 'o'       // pick the specialist for this seat
+        })
+      });
+      const data = await res.json();
+      board[data.move] = aiSeat;
+      lastMove = data.move;
+      render();
+      checkEnd();
+    } catch (e) {
+      setStatus('Backend error: ' + e.message, true);
+    } finally {
+      thinking = false;                    // release the lock whatever happened
+    }
+  }
+
+  function checkEnd() {
+    if (!done(board)) { setStatus('Your turn'); return false; }
+    gameOver = true;
+    render();
+    const w = winnerOf(board);
+    if (w === userSeat) { scores.you++; setStatus('You win', true); }
+    else if (w === aiSeat) { scores.ai++; setStatus('AI wins', true); }
+    else setStatus('Draw', true);
+    youEl.textContent = scores.you;
+    aiEl.textContent = scores.ai;
+    showEndModal(w);
+    return true;
+  }
+
+  // ── wall of fame ──
+  async function refreshWall() {
+    try {
+      const res = await fetch('/wall');
+      const wall = await res.json();          // { name: winCount }
+      const list = document.getElementById('wall-list');
+      const names = Object.keys(wall);
+      if (names.length === 0) {
+        list.innerHTML = '<div class="empty">no one has beaten it. yet.</div>';
+        return;
+      }
+      names.sort((a, b) => wall[b] - wall[a]);
+      list.innerHTML = names.slice(0, 8).map(n =>
+        `<div class="entry"><span class="name">${n}</span> <span class="wins">×${wall[n]}</span></div>`
+      ).join('');
+    } catch { /* wall is cosmetic — never block the game on it */ }
+  }
+
+  async function recordWin() {
+    try {
+      await fetch('/wall', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: playerName })
+      });
+      refreshWall();
+    } catch { /* same: cosmetic */ }
+  }
+
+  // ── end-of-run modal ──
+  const endOverlay = document.getElementById('end-overlay');
+  function showEndModal(winner) {
+    const title = document.getElementById('end-title');
+    const sub = document.getElementById('end-sub');
+    if (winner === userSeat) {
+      title.textContent = 'You beat the machine';
+      sub.textContent = `${playerName}, that's going on the wall.`;
+      recordWin();
+    } else if (winner === aiSeat) {
+      title.textContent = 'The DQN wins';
+      sub.textContent = `${scores.you} – ${scores.ai}. It trained for this.`;
+    } else {
+      title.textContent = 'Draw';
+      sub.textContent = 'The most likely outcome against a 92% defender.';
+    }
+    endOverlay.classList.remove('hidden');
+  }
+
+  function resetBoard(keepScores) {
+    board = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+    gameOver = false;
+    lastMove = -1;
+    if (!keepScores) {
+      scores = { you: 0, ai: 0 };
+      youEl.textContent = '0';
+      aiEl.textContent = '0';
+    }
+    setStatus('Your turn');
+    render();
+  }
+
+  // first move swaps every game: whoever just opened now answers
+  function swapSeats() {
+    userSeat = -userSeat;
+    aiSeat = -aiSeat;
+  }
+
+  document.getElementById('end-retry').onclick = () => {
+    endOverlay.classList.add('hidden');
+    swapSeats();             // swap who plays first
+    resetBoard(true);        // retry keeps the running tally; scoreboard carries over
+    if (aiSeat === -1) aiTurn();   // AI is O this game: it opens
+  };
+
+  document.getElementById('end-quit').onclick = () => {
+    endOverlay.classList.add('hidden');
+    resetBoard(false);       // quit wipes the session
+    probeName();
+  };
+
+  // ── restart button (bottom-right): full reset + name probe ──
+  document.getElementById('restart').onclick = () => {
+    endOverlay.classList.add('hidden');
+    resetBoard(false);
+    probeName();
+  };
+
+  // ── name probe on every load ──
+  const nameOverlay = document.getElementById('name-overlay');
+  const nameInput = document.getElementById('name-input');
+  function probeName() {
+    nameInput.value = localStorage.getItem('tictacnet-name') || '';
+    nameOverlay.classList.remove('hidden');
+    nameInput.focus();
+  }
+  function beginGame(userFirst) {
+    playerName = nameInput.value.trim() || 'anonymous';
+    localStorage.setItem('tictacnet-name', playerName);
+    userSeat = userFirst ? -1 : 1;   // O is always the opening seat
+    aiSeat = -userSeat;
+    nameOverlay.classList.add('hidden');
+    resetBoard(false);
+    if (aiSeat === -1) aiTurn();     // AI starts: the O-seat brain opens
+  }
+  document.getElementById('name-go').onclick = () => beginGame(true);   // "I start (O)"
+  document.getElementById('name-ai').onclick = () => beginGame(false);  // "AI starts (X)"
+  nameInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('name-go').click();
+  });
+
+  // ── boot ──
+  probeName();
+  refreshWall();
+  render();
+</script>
+</body>
+</html>

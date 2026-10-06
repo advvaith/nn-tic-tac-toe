@@ -26,7 +26,7 @@ def play_episode(model, eps=0.1, random_o=False):
     while not game.is_done():
         board_before = game.board.copy()
         player = game.player
-        if random_o and game.player == 1:
+        if random_o and game.player == -1:
             move = random.choice(game.get_valid_moves())
         else:
             move, _ = pick_move(game, model, eps)
@@ -87,15 +87,15 @@ def evaluate(model, n_games=1000):
         
         while not game.is_done():
             move, _ = pick_move(game, model, 0)
-            if game.player == -1:
+            if game.player == 1:
                 game.make_move(move)
             else:
                 game.make_move(random.choice(game.get_valid_moves()))
             
         winner = game.check_winner()
-        if winner == -1:
+        if winner == 1:
             net_wins += 1
-        elif winner == 1:
+        elif winner == -1:
             net_losses += 1
         else:
             draws += 1
@@ -139,5 +139,5 @@ for round_num in range(1000):
         
         if wr_pct > best_wr:
             best_wr = wr_pct
-            torch.save(model.state_dict(), f"ckpt_g0.99_w128_wr_{round(best_wr)}.pt")
+            torch.save(model.state_dict(), f"ckpt_xseat_g0.99_w128_wr{wr_pct}.pt")
             print(f"  new best — saved")

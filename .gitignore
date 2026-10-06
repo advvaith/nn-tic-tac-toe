@@ -8,3 +8,6 @@ wheels/
 
 # Virtual environments
 .venv
+
+# runtime state
+wall.json
