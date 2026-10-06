@@ -22,6 +22,5 @@ class NeuralNetwork(nn.Module):
         x = relu(x)
         
         x = self.output_layer(x)
-        x = sigmoid(x)
         
         return x
