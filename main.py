@@ -10,9 +10,9 @@ if torch.backends.mps.is_available():
 class NeuralNetwork(nn.Module):
     def __init__(self):
         super().__init__()
-        self.dl1 = nn.Linear(9, 32)
-        self.dl2 = nn.Linear(32, 32)
-        self.output_layer = nn.Linear(32, 9)
+        self.dl1 = nn.Linear(9, 128)
+        self.dl2 = nn.Linear(128, 128)
+        self.output_layer = nn.Linear(128, 9)
         
     def forward(self, x):
         x = self.dl1(x)

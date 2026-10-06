@@ -9,7 +9,7 @@ model = NeuralNetwork()
 criterion = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 buffer = collections.deque(maxlen=10000)
-gamma = 0.9
+gamma = 0.99
 
 def pick_move(game, model, eps=0.1):
     with torch.no_grad():
@@ -19,14 +19,17 @@ def pick_move(game, model, eps=0.1):
         return random.choice(valid), scores
     return max(valid, key=lambda c: scores[c].item()), scores
 
-def play_episode(model, eps=0.1):
+def play_episode(model, eps=0.1, random_o=False):
     game = TicTacToe()
     history = []
     
     while not game.is_done():
         board_before = game.board.copy()
         player = game.player
-        move, _ = pick_move(game, model, eps)
+        if random_o and game.player == 1:
+            move = random.choice(game.get_valid_moves())
+        else:
+            move, _ = pick_move(game, model, eps)
         game.make_move(move)
         history.append((board_before, player, move))
 
@@ -43,9 +46,7 @@ def add_rewards(history, winner, final_board):
             done = False
             next_board = [cell * (-player) for cell in history[i + 1][0]]
         
-        reward = 0.0
-        if winner != 0:
-            reward = 1.0 if player == winner else -1.0
+        reward = 1.0 if player == winner else -1.0
         samples.append((board, move, reward, next_board, done))
     return samples
 
@@ -78,38 +79,38 @@ def train_step(samples):
     
     return loss.item()
     
-def evaluate(model, n_games=100):
-    x_wins, draws, o_wins = 0, 0, 0
+def evaluate(model, n_games=1000):
+    net_wins, draws, net_losses = 0, 0, 0
     
     for _ in range(n_games):
         game = TicTacToe()
         
         while not game.is_done():
             move, _ = pick_move(game, model, 0)
-            if game.player == 1:
+            if game.player == -1:
                 game.make_move(move)
             else:
                 game.make_move(random.choice(game.get_valid_moves()))
             
         winner = game.check_winner()
-        if winner == 1:
-            x_wins += 1
-        elif winner == -1:
-            o_wins += 1
+        if winner == -1:
+            net_wins += 1
+        elif winner == 1:
+            net_losses += 1
         else:
             draws += 1
             
-    print(f"x wins: {x_wins}, o wins: {o_wins}, draws: {draws}")
+    return net_wins
     
-def train_round(n_episode=20):  
+def train_round(eps, n_episode=20):  
     for _ in range(n_episode):
-        history, winner, final_board = play_episode(model)
+        history, winner, final_board = play_episode(model, eps, random_o=(_ % 3 == 0))
         remember(add_rewards(history, winner, final_board))
     
     loss = []
-    for _ in range(5):
+    for _ in range(20):
         loss.append(train_step(sample_batch()))
-    print(sum(loss)/5)
+    print(sum(loss)/len(loss))
 
 def remember(samples):
     buffer.extend(samples)
@@ -124,11 +125,19 @@ def compute_target(boards, moves, rewards, next_boards, dones):
         targets = rewards - gamma * best_next * (~dones).float()
         return targets
     
-for round_num in range(200):
-    train_round()
-    if round_num % 20 == 0:
+eps_min, eps_start, decay = 0.05, 0.3, 0.995
+
+best_wr = 0
+for round_num in range(1000):
+    eps = max(eps_min, eps_start * decay ** round_num)
+    train_round(eps)
+    if round_num % 100 == 0:
         print(f"round {round_num}")
-        evaluate(model)
+        wr = evaluate(model)
+        wr_pct = round(100 * wr/1000)
+        print(f"round {round_num}: win rate {wr_pct}%")
         
-torch.save(model.state_dict(), "checkpoint_g0.9_lr0.01.pt")
-model.load_state_dict(torch.load("checkpoint_g0.9_lr0.01.pt"))
+        if wr_pct > best_wr:
+            best_wr = wr_pct
+            torch.save(model.state_dict(), f"ckpt_g0.99_w128_wr_{round(best_wr)}.pt")
+            print(f"  new best — saved")
