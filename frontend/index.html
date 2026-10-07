@@ -417,7 +417,7 @@
     } else if (winner === aiSeat) {
       if (mode === 'perfect') {
         title.textContent = 'Impossible, as promised';
-        sub.textContent = `${playerName}, it read the entire game tree. Nobody beats it.`;
+        sub.textContent = `${playerName}, it knows all possibilities. Nobody beats it.`;
       } else {
         title.textContent = 'The DQN wins';
         sub.textContent = `${scores.you} – ${scores.ai}. It trained for this.`;
