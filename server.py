@@ -52,6 +52,11 @@ def home():
     return FileResponse("frontend/index.html")
 
 
+@app.get('/explain')
+def explain():
+    return FileResponse("frontend/explain.html")
+
+
 @app.post('/move')
 def move(req: MoveRequest):
     if req.seat == "perfect":

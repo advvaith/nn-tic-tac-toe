@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Proof vs. plausible: minimax and a neural net</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=DM+Sans:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--ser:"Newsreader",Georgia,serif;--sans:"DM Sans",system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,monospace;
+--bg:#FAF9F5;--card:#FFFEFC;--well:#F3F0E8;--ink:#1F1E1B;--mut:#6C6A62;--line:#E4DFD2;--sh:0 1px 2px rgba(60,50,30,.05),0 14px 34px -18px rgba(60,50,30,.28);
+--mm:#2B6CC4;--mmbg:#E1ECFA;--dq:#7352C9;--dqbg:#ECE6FA;--ok:#12857A;--bad:#C0432F}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#262624;--card:#30302E;--well:#3A3935;--ink:#F2EFE6;--mut:#A9A598;--line:#4A4842;--sh:0 1px 2px rgba(0,0,0,.3),0 14px 34px -18px rgba(0,0,0,.6);--mm:#7FB0F5;--mmbg:#243A5C;--dq:#B79BF0;--dqbg:#3E3260;--ok:#4FD1C0;--bad:#FF9784}}
+:root[data-theme="dark"]{--bg:#262624;--card:#30302E;--well:#3A3935;--ink:#F2EFE6;--mut:#A9A598;--line:#4A4842;--sh:0 1px 2px rgba(0,0,0,.3),0 14px 34px -18px rgba(0,0,0,.6);--mm:#7FB0F5;--mmbg:#243A5C;--dq:#B79BF0;--dqbg:#3E3260;--ok:#4FD1C0;--bad:#FF9784}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+code,.m{font-family:var(--mono);font-size:.84em;background:var(--well);padding:1px 6px;border-radius:5px}
+.m{background:none;padding:0}
+header{display:flex;justify-content:space-between;align-items:center;padding:18px 28px;gap:14px;flex-wrap:wrap;max-width:1120px;margin:0 auto}
+.brand{display:flex;align-items:center;gap:11px;font-family:var(--ser);font-size:1.3rem;font-weight:500;letter-spacing:-.01em}
+.brand svg{width:26px;height:26px}
+nav{display:flex;gap:8px;align-items:center}
+button{font:inherit;font-size:.92rem;font-weight:500;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 16px;border-radius:99px;cursor:pointer;transition:background .2s,transform .15s,border-color .2s}
+button:hover{border-color:var(--mut)}button:active{transform:scale(.97)}
+button.pri{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.arrow{width:36px;height:36px;padding:0;display:grid;place-items:center}
+.tabs{display:flex;gap:2px;padding:4px;border:1px solid var(--line);border-radius:99px;background:var(--card)}
+.tabs i{font-style:normal;font-size:.88rem;font-weight:500;padding:6px 14px;border-radius:99px;color:var(--mut);cursor:pointer;transition:.2s;white-space:nowrap}
+.tabs i:hover{color:var(--ink)}.tabs i.on{background:var(--ink);color:var(--bg)}
+@media(max-width:760px){.tabs i{padding:6px 9px;font-size:.78rem}}
+main{max-width:1120px;margin:0 auto;padding:18px 28px 70px}
+section{display:none}section.on{display:block;animation:in .45s ease}
+@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+h2{font-family:var(--ser);font-weight:500;font-size:clamp(2.1rem,4.6vw,3.3rem);line-height:1.05;margin:.1em 0 .28em;letter-spacing:-.025em}
+h3{font-family:var(--ser);font-weight:500;font-size:1.45rem;letter-spacing:-.01em;margin:0 0 8px}
+p.lead{color:var(--mut);max-width:44em;line-height:1.6;margin:0 0 24px;font-size:1.1rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:var(--sh)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}@media(max-width:760px){.two{grid-template-columns:1fr}}
+.mmc{color:var(--mm)}.dqc{color:var(--dq)}
+svg{width:100%;height:auto;display:block}svg text{font-family:var(--sans);fill:var(--ink)}svg .mono{font-family:var(--mono);font-size:11px;fill:var(--mut)}
+.ctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:16px 0 4px}
+.ctl label{display:flex;align-items:center;gap:10px;color:var(--mut);font-size:.9rem}
+input[type=range]{accent-color:var(--ok);width:170px}
+.log{font-family:var(--mono);font-size:.86rem;color:var(--mut);min-height:1.5em;padding:8px 14px;background:var(--well);border-radius:10px;flex:1 1 260px}
+.nd{opacity:0;transition:opacity .35s}.nd.show{opacity:1}.val{opacity:0;transition:opacity .35s}.val.show{opacity:1}
+.edge{opacity:0;transition:opacity .35s;stroke:var(--mut);stroke-width:1.5}.edge.show{opacity:1}
+.note{border:1px solid var(--line);border-left:4px solid var(--dq);background:var(--card);border-radius:12px;padding:12px 16px;color:var(--mut);margin-top:18px;font-size:.95rem;line-height:1.55}
+.sc{display:grid;grid-template-columns:150px 1fr;gap:14px;align-items:center;margin:20px 0 4px}
+.sc b{font-family:var(--ser);font-size:1.15rem;font-weight:500}
+.sc .t{height:30px;background:var(--well);border-radius:99px;position:relative;overflow:visible}.sc .t i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--dq),var(--ok));transition:width 1.6s cubic-bezier(.2,.7,.2,1)}
+.sc .t u{position:absolute;left:1.8%;top:-6px;bottom:-6px;border-left:2px dashed var(--ink);opacity:.5}
+.sc+small{display:block;margin-left:164px;color:var(--mut);font-size:.9rem}
+@media(max-width:600px){.sc{grid-template-columns:1fr;gap:6px}.sc+small{margin-left:0}}
+.out{background:var(--well);border-radius:12px;padding:14px 16px;margin:12px 0;line-height:1.6;font-size:.98rem}
+.hide{display:none}.bad{color:var(--bad);font-weight:700}.good{color:var(--ok);font-weight:700}
+ol.q{color:var(--mut);line-height:1.7;padding-left:22px;margin:8px 0 0;font-family:var(--ser);font-size:1.12rem}ol.q b{color:var(--ink);font-weight:500}
+</style></head><body>
+<header><div class="brand"><svg viewBox="0 0 26 26"><rect x="1" y="1" width="7" height="7" rx="2" fill="var(--mm)"/><rect x="9.5" y="9.5" width="7" height="7" rx="2" fill="var(--dq)"/><rect x="18" y="18" width="7" height="7" rx="2" fill="var(--ok)"/><rect x="18" y="1" width="7" height="7" rx="2" fill="var(--line)"/><rect x="1" y="18" width="7" height="7" rx="2" fill="var(--line)"/></svg>Proof vs. plausible</div>
+<nav><button class="arrow" id="prev" aria-label="Previous">&larr;</button><div class="tabs" id="dots"></div><button class="arrow" id="next" aria-label="Next">&rarr;</button><button class="arrow" id="th" aria-label="Toggle light or dark">&#9680;</button></nav></header>
+<main>
+
+<section class="on">
+<h2>Minimax: searching every future</h2>
+<p class="lead">This is the real algorithm from <code>minmax.py</code>, running live on a real position. <b>O</b> (pink) is to move with three empty cells. Watch it try each move, play out the replies, and pass values back up. Where two different move orders reach the same position, it reuses the cached answer.</p>
+<div class="card"><svg id="tree" viewBox="0 0 820 400" role="img" aria-label="Minimax search tree"></svg>
+<div class="ctl"><button class="pri" id="tp">Play</button><button id="ts">Step</button><button id="tr">Reset</button><span class="log" id="tlog">Press Play.</span></div>
+<span class="m" style="color:var(--mut)">+1 = X wins, 0 = draw, -1 = O wins. O minimises, X maximises. Dashed box = cache hit.</span></div>
+</section>
+
+<section>
+<h2>The neural net: one pass, no search</h2>
+<p class="lead">Same position. The board is flipped to the mover's point of view (<code>cell * player</code>), flows through <code>9 &rarr; 128 &rarr; 128 &rarr; 9</code>, and out come nine scores. Bad cells are masked and the highest left is played.</p>
+<div class="card"><svg id="nn" viewBox="0 0 820 400" role="img" aria-label="Neural network forward pass"></svg>
+<div class="ctl"><button class="pri" id="np">Run a forward pass</button>
+<label class="m">training rounds <input type="range" id="sl" min="0" max="1000" value="1000"> <span id="slv">1000</span></label></div>
+<div class="log" id="nlog">The slider morphs the output from untrained noise to a trained shape. Illustrative: these are not weights from best.pt.</div></div>
+<div class="note">Hidden layers show 8 of 128 neurons each. Every neuron mixes all the previous layer's values, then ReLU keeps the positive ones.</div>
+</section>
+
+<section>
+<h2>Why a network at all?</h2>
+<p class="lead">Tic-tac-toe is small enough to enumerate, so minimax wins. Most interesting problems are not. Bars are powers of ten (log scale); the dashed line is roughly what a laptop can enumerate.</p>
+<div class="card" id="scale">
+<div class="sc"><b>Tic-tac-toe</b><div class="t"><u></u><i data-e="3.74" style="background:var(--mm)"></i></div></div><small>5,478 positions: search it all</small>
+<div class="sc"><b>Chess</b><div class="t"><u></u><i data-e="44"></i></div></div><small>about 10<sup>44</sup> positions: impossible to enumerate</small>
+<div class="sc"><b>Go</b><div class="t"><u></u><i data-e="170"></i></div></div><small>about 10<sup>170</sup> positions</small>
+<div class="sc"><b>100 words of text</b><div class="t"><u></u><i data-e="500"></i></div></div><small>100 tokens from a 100,000-token vocabulary = 10<sup>500</sup> strings, across every language</small>
+<div class="ctl"><button id="sr">Replay</button></div></div>
+<div class="note">The idea they share: stop enumerating, learn a function that scores options. One honest caveat for the Q&amp;A: ChatGPT-style models are transformers trained to predict the next token, not a DQN. Your network is a small, auditable example of the same principle.</div>
+</section>
+
+<section>
+<h2>Proof vs. plausible</h2>
+<p class="lead">Same position, same answer, but very different things behind it. Click through.</p>
+<div class="two">
+<div class="card"><h3 class="mmc" style="margin-top:0">Minimax says: cell 2</h3>
+<div class="out">Value <b>-1</b> (O wins). <button id="m1">Show the proof</button><div id="m1o" class="hide" style="margin-top:8px">Cell 0 loses: X replies at 1 and wins. Cell 1 only draws. Cell 2 completes the right column: immediate win. Every line was checked.</div></div></div>
+<div class="card"><h3 class="dqc" style="margin-top:0" id="nnh">Network says: cell 2</h3>
+<div class="out" id="nno">Score <b>0.91</b>. <button id="n1">Show the reasoning</button><div id="n1o" class="hide" style="margin-top:8px">There isn't a readable one: about 19,000 weights multiplied together. It was right here, because it was trained well.</div></div>
+<button id="n2">Now try a weaker network</button></div>
+</div>
+<div class="card" id="aud" style="margin-top:14px;display:none">
+<div class="out">A badly trained network (hypothetical) picks <b>cell 0</b> with score <b>0.88</b>. It looks just as sure.</div>
+<button class="pri" id="n3">Audit with minimax</button>
+<div class="out hide" id="n3o"><span class="bad">Cell 0 is a blunder.</span> Minimax says X wins in reply. Here an oracle exists, so the mistake is caught. For open-ended language there is no oracle to ask.</div></div>
+<div class="note" style="border-left-color:var(--mm)"><b>Questions for the audience</b>
+<ol class="q"><li><b>When the answer sounds confident, what makes you believe it?</b></li><li><b>Which answers can you check yourself, and which only look right?</b></li><li><b>Would you trust it for homework, medicine, or law? What changes?</b></li></ol></div>
+</section>
+</main>
+<script>
+const S=[...document.querySelectorAll("section")],D=document.getElementById("dots");let cur=0;
+const TT=["Minimax","Neural net","Why a network","Proof vs. plausible"];S.forEach((_,k)=>{const d=document.createElement("i");d.textContent=TT[k];d.onclick=()=>go(k);D.appendChild(d)});th.onclick=()=>{const r=document.documentElement,d=r.dataset.theme?r.dataset.theme=="dark":matchMedia("(prefers-color-scheme:dark)").matches;r.dataset.theme=d?"light":"dark"};
+function go(k){cur=Math.max(0,Math.min(S.length-1,k));S.forEach((s,j)=>s.classList.toggle("on",j==cur));[...D.children].forEach((d,j)=>d.classList.toggle("on",j==cur));window.scrollTo(0,0);if(cur==2)runScale()}
+prev.onclick=()=>go(cur-1);next.onclick=()=>go(cur+1);addEventListener("keydown",e=>{if(e.key=="ArrowRight")go(cur+1);if(e.key=="ArrowLeft")go(cur-1)});
+const NS="http://www.w3.org/2000/svg",el=(t,a={},p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);p&&p.appendChild(e);return e};
+const B0=[0,0,0,1,1,-1,-1,1,-1],WL=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const win=b=>{for(const[a,c,d]of WL){const s=b[a]+b[c]+b[d];if(s==3)return 1;if(s==-3)return -1}return 0};
+// ---- minimax tree (same logic as minmax.py, with transposition table)
+const ev=[],seen={};
+function build(b,p,mv){const key=b.join()+"|"+p,n={b,p,mv,kids:[]};ev.push(["v",n]);const w=win(b);
+ if(w||!b.includes(0)){n.val=w}else if(key in seen){n.val=seen[key];n.cached=1}
+ else{b.forEach((e,i)=>{if(!e){const c=b.slice();c[i]=p;n.kids.push(build(c,-p,i))}});const v=n.kids.map(k=>k.val);n.val=p==1?Math.max(...v):Math.min(...v);seen[key]=n.val}
+ ev.push(["d",n]);return n}
+const root=build(B0,-1,null);let li=0;(function lay(n,d){n.d=d;if(!n.kids.length)n.x=li++;else{n.kids.forEach(k=>lay(k,d+1));n.x=(n.kids[0].x+n.kids.at(-1).x)/2}})(root,0);
+const T=document.getElementById("tree"),all=[];
+(function draw(n,par){const x=70+n.x*(680/Math.max(1,li-1)),y=48+n.d*112;n.px=x;n.py=y;
+ if(par){n.edge=el("line",{x1:par.px,y1:par.py+22,x2:x,y2:y-22,class:"edge"},T)}
+ const g=el("g",{class:"nd",transform:`translate(${x-21},${y-21})`},T);n.g=g;
+ el("rect",{width:42,height:42,rx:5,fill:"var(--card)",stroke:n.cached?"var(--mut)":"var(--line)","stroke-width":n.cached?2:1,"stroke-dasharray":n.cached?"4 3":"0"},g);
+ n.b.forEach((v,i)=>{el("rect",{x:3+(i%3)*12.5,y:3+Math.floor(i/3)*12.5,width:11,height:11,rx:2,fill:v==1?"var(--mm)":v==-1?"var(--dq)":"var(--well)",stroke:i==n.mv?"var(--ok)":"none","stroke-width":2},g)});
+ const txt=n.val>0?"+1":n.val<0?"-1":"0",t=el("text",{x:x,y:y+40,"text-anchor":"middle","font-weight":700,class:"val",fill:n.val>0?"var(--mm)":n.val<0?"var(--dq)":"var(--mut)"},T);t.textContent=txt+(n.kids.length?(n.p==1?" max":" min"):n.cached?" cached":"");t.style.fill=n.val>0?"var(--mm)":n.val<0?"var(--dq)":"var(--mut)";n.vt=t;
+ n.kids.forEach(k=>draw(k,n))})(root,null);
+let ti=0,tm=null;const tlog=document.getElementById("tlog");
+function tstep(){if(ti>=ev.length){clearInterval(tm);tm=null;tp.textContent="Play";
+ const best=root.kids.find(k=>k.val==root.val);best.g.firstChild.setAttribute("stroke","var(--ok)");best.g.firstChild.setAttribute("stroke-width",4);tlog.textContent=`O minimises: best value ${root.val}, so it plays cell ${best.mv}.`;return}
+ const[t,n]=ev[ti++];if(t=="v"){n.g.classList.add("show");n.edge&&n.edge.classList.add("show");tlog.textContent=n.mv==null?"Start: O to move.":`Try ${n.p==1?"O":"X"} at cell ${n.mv}...`}
+ else{n.vt.classList.add("show");tlog.textContent=n.kids.length?`${n.p==1?"X picks the max":"O picks the min"} of its children: ${n.val}`:n.cached?`Same position seen before: reuse ${n.val}`:`Game over: ${n.val}`}}
+tp.onclick=()=>{if(tm){clearInterval(tm);tm=null;tp.textContent="Play"}else{if(ti>=ev.length)treset();tm=setInterval(tstep,650);tp.textContent="Pause"}};
+ts.onclick=tstep;function treset(){clearInterval(tm);tm=null;ti=0;tp.textContent="Play";T.querySelectorAll(".show").forEach(e=>e.classList.remove("show"));T.querySelectorAll("rect").forEach(r=>{if(r.getAttribute("stroke-width")==4){r.setAttribute("stroke","var(--line)");r.setAttribute("stroke-width",1)}});tlog.textContent="Press Play."}
+tr.onclick=treset;
+// ---- neural net
+const N=document.getElementById("nn"),X=[70,270,470,620],inp=B0.map(v=>-v),hy=(i,n,gap)=>200+(i-(n-1)/2)*gap;
+const L=[9,8,8,9],gaps=[38,40,40,38],neu=[],edges=[];
+for(let l=0;l<3;l++){const g=el("g",{},N);edges.push(g);for(let i=0;i<L[l];i++)for(let j=0;j<L[l+1];j++)el("line",{x1:X[l],y1:hy(i,L[l],gaps[l]),x2:X[l+1],y2:hy(j,L[l+1],gaps[l+1]),stroke:"var(--mut)","stroke-width":1,opacity:.1},g)}
+for(let l=0;l<4;l++){neu[l]=[];for(let i=0;i<L[l];i++){const c=el("circle",{cx:X[l],cy:hy(i,L[l],gaps[l]),r:12,fill:"var(--card)",stroke:"var(--ink)","stroke-width":1.5},N);neu[l].push(c);
+ if(l==0){const t=el("text",{x:X[0]-22,y:hy(i,9,38)+4,"text-anchor":"end",class:"mono"},N);t.textContent=(inp[i]>0?"+":"")+inp[i]}
+ if(l==3){const t=el("text",{x:X[3]+20,y:hy(i,9,38)+4,class:"mono"},N);t.textContent="cell "+i}}}
+[["input (flipped)",70],["hidden 128 (8 shown)",270],["hidden 128 (8 shown)",470],["output Q",620]].forEach(([s,x])=>{const t=el("text",{x,y:18,"text-anchor":"middle","font-weight":600,"font-size":13},N);t.textContent=s});
+const bars=[];for(let i=0;i<9;i++){const y=hy(i,9,38);el("line",{x1:735,x2:735,y1:y-14,y2:y+14,stroke:"var(--line)"},N);bars.push(el("rect",{x:735,y:y-8,width:0,height:16,rx:3,fill:"var(--dq)"},N))}
+const nz=[.4,-.3,.5,-.6,.2,.7,-.2,.1,-.5],tg={0:-.8,1:.2,2:.9};
+function setQ(t,mask){bars.forEach((b,i)=>{const empty=B0[i]==0,q=empty?nz[i]*(1-t)+tg[i]*t:0,w=Math.abs(q)*70;b.setAttribute("x",q<0?735-w:735);b.setAttribute("width",empty?w:0);b.setAttribute("fill",mask&&i==2&&empty?"var(--ok)":"var(--dq)")});[...N.querySelectorAll(".qt")].forEach(e=>e.remove());}
+setQ(1,true);
+let nt=[];np.onclick=()=>{nt.forEach(clearTimeout);nt=[];neu.flat().forEach(c=>{c.setAttribute("fill","var(--card)")});edges.forEach(g=>[...g.children].forEach(l=>l.setAttribute("opacity",.1)));setQ(+sl.value/1000,false);
+ [0,1,2,3].forEach(l=>nt.push(setTimeout(()=>{neu[l].forEach((c,i)=>c.setAttribute("fill",l==0?(inp[i]>0?"var(--mm)":inp[i]<0?"var(--dq)":"var(--well)"):(i*7+l*3)%5<3?"var(--dq)":"var(--well)"));if(l)[...edges[l-1].children].forEach(e=>e.setAttribute("opacity",.3));nlog.textContent=["Input: the board as +1 mine, -1 theirs, 0 empty.","Layer 1: 128 weighted sums, negatives clipped to 0.","Layer 2: 128 more, mixing layer 1 into patterns.","Output: nine scores. Occupied cells are masked; cell 2 is the highest left."][l]},l*1100)));
+ nt.push(setTimeout(()=>setQ(+sl.value/1000,true),4600))};
+sl.oninput=()=>{slv.textContent=sl.value;setQ(+sl.value/1000,true);nlog.textContent=sl.value==0?"Untrained: scores are noise, move choice is arbitrary.":"More training pulls the scores toward minimax's verdicts: win highest, loss lowest."};
+// ---- scale
+function runScale(){document.querySelectorAll("#scale i").forEach(i=>{i.style.transition="none";i.style.width="0";void i.offsetWidth;i.style.transition="";i.style.width=Math.max(.6,(+i.dataset.e/500*100))+"%"})}sr.onclick=runScale;
+// ---- trust
+m1.onclick=()=>m1o.classList.toggle("hide");n1.onclick=()=>n1o.classList.toggle("hide");
+n2.onclick=()=>{aud.style.display="block";n2.style.display="none"};n3.onclick=()=>n3o.classList.remove("hide");
+go(0);
+</script></body></html>
