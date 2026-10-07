@@ -40,11 +40,12 @@ for m in models.values():
     m.eval()
 
 class MoveRequest(BaseModel):
-    board: list[int]      # -1/0/1, length 9, from THE MOVER's perspective
+    board: list[int]
     valid_moves: list[int]
-    seat: str = "x"       # which brain plays this move: "x" or "o"
+    seat: str = "x"   
 
 from fastapi.responses import FileResponse
+from minmax import choose_move
 
 @app.get('/')
 def home():
@@ -53,6 +54,9 @@ def home():
 
 @app.post('/move')
 def move(req: MoveRequest):
+    if req.seat == "perfect":
+        # board arrives in mover's perspective (mover stones = +1), so the minimax mover is player 1
+        return {"move": choose_move(req.board, 1)}
     model = models[req.seat]
     scores = model(torch.tensor(req.board, dtype=torch.float32))
     best = max(req.valid_moves, key= lambda c: scores[c].item())

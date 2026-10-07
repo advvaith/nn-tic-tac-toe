@@ -131,6 +131,7 @@
     }
     .restart:hover { background: var(--hover); }
     .restart:active { background: rgba(255, 255, 255, 0.1); }
+    .restart#mode-toggle { right: 148px; }
 
     /* ── modal (name probe + end of run) ── */
     .overlay {
@@ -236,6 +237,7 @@
 
   <div class="board" id="board"></div>
 
+  <button class="restart" id="mode-toggle">Impossible mode</button>
   <button class="restart" id="restart">Restart</button>
 
   <!-- name probe -->
@@ -248,6 +250,7 @@
       <div class="actions">
         <button class="primary" id="name-go">I start (O)</button>
         <button id="name-ai">AI starts (X)</button>
+        <button id="name-perfect">Impossible</button>
       </div>
       <div class="actions" style="margin-top:8px">
         <button id="name-swap-hint" style="border:none; box-shadow:none; cursor:default; color:var(--text-faint); font-size:12px;">first move swaps every game</button>
@@ -277,6 +280,7 @@
   let lastMove = -1;
   let thinking = false;                     // input lock while the AI's move is in flight
   let playerName = null;
+  let mode = 'nn';                          // 'nn' = DQN brains, 'perfect' = minimax
 
   const WIN_LINES = [
     [0,1,2],[3,4,5],[6,7,8],
@@ -343,7 +347,7 @@
         body: JSON.stringify({
           board: board.map(c => c * aiSeat),   // mover's perspective: AI's stones read +1
           valid_moves: validMoves(board),
-          seat: aiSeat === 1 ? 'x' : 'o'       // pick the specialist for this seat
+          seat: mode === 'perfect' ? 'perfect' : (aiSeat === 1 ? 'x' : 'o')
         })
       });
       const data = await res.json();
@@ -467,17 +471,36 @@
     nameOverlay.classList.remove('hidden');
     nameInput.focus();
   }
-  function beginGame(userFirst) {
+  function beginGame(userFirst, gameMode) {
+    mode = gameMode || 'nn';
+    renderModeBtn();
     playerName = nameInput.value.trim() || 'anonymous';
     localStorage.setItem('tictacnet-name', playerName);
     userSeat = userFirst ? -1 : 1;   // O is always the opening seat
     aiSeat = -userSeat;
     nameOverlay.classList.add('hidden');
     resetBoard(false);
-    if (aiSeat === -1) aiTurn();     // AI starts: the O-seat brain opens
+    if (aiSeat === -1) aiTurn();     // AI starts: it opens
   }
-  document.getElementById('name-go').onclick = () => beginGame(true);   // "I start (O)"
-  document.getElementById('name-ai').onclick = () => beginGame(false);  // "AI starts (X)"
+  document.getElementById('name-go').onclick = () => beginGame(true, 'nn');       // "I start (O)"
+  document.getElementById('name-ai').onclick = () => beginGame(false, 'nn');      // "AI starts (X)"
+  document.getElementById('name-perfect').onclick = () => beginGame(true, 'perfect'); // vs minimax
+
+  // ── impossible/regular mode toggle (next to restart) ──
+  const modeBtn = document.getElementById('mode-toggle');
+  function renderModeBtn() {
+    modeBtn.textContent = mode === 'perfect' ? 'Regular mode' : 'Impossible mode';
+  }
+  modeBtn.onclick = () => {
+    if (thinking) return;                 // don't yank the board mid-AI-move
+    endOverlay.classList.add('hidden');
+    mode = mode === 'perfect' ? 'nn' : 'perfect';
+    renderModeBtn();
+    swapSeats();                          // new game: first move swaps, same as retry
+    resetBoard(true);                     // tally carries over; the brain changed
+    if (aiSeat === -1) aiTurn();
+  };
+  renderModeBtn();
   nameInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('name-go').click();
   });
