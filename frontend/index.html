@@ -152,6 +152,22 @@
       text-align: center;
       min-width: 320px;
     }
+    .modal { position: relative; }
+    .modal .close-x {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      color: var(--text-faint);
+      font-size: 18px;
+      line-height: 1;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-family: 'Geist', sans-serif;
+    }
+    .modal .close-x:hover { color: var(--text); background: var(--hover); }
     .modal h1 {
       font-size: 24px;
       font-weight: 600;
@@ -261,6 +277,7 @@
   <!-- end of run -->
   <div class="overlay hidden" id="end-overlay">
     <div class="modal">
+      <button class="close-x" id="end-close" title="close (board stays visible)">×</button>
       <h1 id="end-title">Game over</h1>
       <p id="end-sub"></p>
       <div class="actions">
@@ -407,6 +424,7 @@
 
   // ── end-of-run modal ──
   const endOverlay = document.getElementById('end-overlay');
+  document.getElementById('end-close').onclick = () => endOverlay.classList.add('hidden');
   function showEndModal(winner) {
     const title = document.getElementById('end-title');
     const sub = document.getElementById('end-sub');
