@@ -15,6 +15,15 @@
       --border-strong: rgba(255, 255, 255, 0.24);
       --hover: rgba(255, 255, 255, 0.05);
     }
+    :root[data-theme="light"] {
+      --bg: #ffffff;
+      --text: #171717;
+      --text-dim: #666666;
+      --text-faint: #999999;
+      --border: rgba(0, 0, 0, 0.12);
+      --border-strong: rgba(0, 0, 0, 0.24);
+      --hover: rgba(0, 0, 0, 0.05);
+    }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -44,6 +53,20 @@
       display: inline-block;
       min-width: 2ch;
     }
+    .theme-btn {
+      position: fixed;
+      top: 92px;
+      left: 24px;
+      background: transparent;
+      border: none;
+      color: var(--text-faint);
+      font-family: 'Geist Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      padding: 2px 0;
+    }
+    .theme-btn:hover { color: var(--text); }
 
     /* ── top-center turn indicator ── */
     .status {
@@ -243,6 +266,7 @@
     <div>You&nbsp;&nbsp;<span class="num" id="score-you">0</span></div>
     <div>AI&nbsp;&nbsp;&nbsp;&nbsp;<span class="num" id="score-ai">0</span></div>
   </div>
+  <button class="theme-btn" id="theme-btn">light mode</button>
 
   <div class="status" id="status">Who's playing?</div>
 
@@ -531,6 +555,16 @@
   nameInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('name-go').click();
   });
+
+  // ── theme toggle ──
+  const themeBtn = document.getElementById('theme-btn');
+  function applyTheme(t) {
+    document.documentElement.dataset.theme = t;
+    themeBtn.textContent = t === 'light' ? 'dark mode' : 'light mode';
+    localStorage.setItem('tictacnet-theme', t);
+  }
+  themeBtn.onclick = () => applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+  applyTheme(localStorage.getItem('tictacnet-theme') || 'dark');
 
   // ── boot ──
   probeName();
