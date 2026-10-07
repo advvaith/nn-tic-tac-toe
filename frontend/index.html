@@ -415,8 +415,16 @@
       sub.textContent = `${playerName}, that's going on the wall.`;
       recordWin();
     } else if (winner === aiSeat) {
-      title.textContent = 'The DQN wins';
-      sub.textContent = `${scores.you} – ${scores.ai}. It trained for this.`;
+      if (mode === 'perfect') {
+        title.textContent = 'Impossible, as promised';
+        sub.textContent = `${playerName}, it read the entire game tree. Nobody beats it.`;
+      } else {
+        title.textContent = 'The DQN wins';
+        sub.textContent = `${scores.you} – ${scores.ai}. It trained for this.`;
+      }
+    } else if (mode === 'perfect') {
+      title.textContent = 'You drew the impossible';
+      sub.textContent = 'A draw against perfection — the best result in history.';
     } else {
       title.textContent = 'Draw';
       sub.textContent = 'The most likely outcome against a 92% defender.';
